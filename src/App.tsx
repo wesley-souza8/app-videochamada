@@ -6,6 +6,7 @@ import { ControlsBar } from './components/ControlsBar';
 import { ImageLinksModal } from './components/ImageLinksModal';
 import { HtmlSnippetModal } from './components/HtmlSnippetModal';
 import { ChatDrawer } from './components/ChatDrawer';
+import { useWebRTC } from './hooks/useWebRTC';
 import { PRESET_IMAGE_OPTIONS, PRESET_SAMPLE_VIDEOS } from './data/presetImages';
 
 export default function App() {
@@ -26,6 +27,9 @@ export default function App() {
   // Media Streams
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+
+  // WebRTC Mesh Real
+  const { startConnection, stopConnection, remoteStreams, remoteParticipants } = useWebRTC(localStream);
 
   // Iniciando apenas com o usuário local, sem imagens de mentira
   const [participants, setParticipants] = useState<Participant[]>([
@@ -188,13 +192,13 @@ export default function App() {
   const handleConnectToggle = () => {
     if (status === 'connected') {
       setStatus('disconnected');
+      stopConnection(); // Derruba malha PeerJS
       stopCamera();
       if (screenStream) {
         screenStream.getTracks().forEach((t) => t.stop());
         setScreenStream(null);
       }
       setIsScreenSharing(false);
-      // Remove todo mundo menos o local ao desconectar
       setParticipants(prev => prev.filter(p => p.isLocal));
     } else {
       const pass = prompt('Digite a senha da sala para entrar:');
@@ -204,39 +208,22 @@ export default function App() {
       }
 
       setStatus('connecting');
-      setTimeout(() => {
-        setStatus('connected');
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `msg-${Date.now()}`,
-            senderId: 'system',
-            senderName: 'Sistema',
-            text: `Você entrou na sala "${roomName || 'sala-reuniao-1'}"`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isSystem: true,
-          },
-        ]);
+      
+      // Inicia Conexão Real
+      startConnection(roomName);
 
-        // Simula um amigo entrando na sala 2 segundos depois para mostrar o grid adaptativo
-        setTimeout(() => {
-          setParticipants(prev => [
-            ...prev,
-            {
-              id: 'remote-1',
-              name: 'Amigo 1',
-              isLocal: false,
-              isMicOn: true,
-              isCameraOn: false,
-              isSpeaking: false,
-              isScreenSharing: false,
-              feedMode: 'camera',
-              directImageUrl: '',
-            }
-          ]);
-        }, 2000);
-
-      }, 600);
+      setStatus('connected');
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          senderId: 'system',
+          senderName: 'Sistema',
+          text: `Você entrou na sala "${roomName || 'sala-reuniao-1'}" e conectou à malha P2P.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isSystem: true,
+        },
+      ]);
     }
   };
 
@@ -310,6 +297,8 @@ export default function App() {
     }, 1500);
   };
 
+  const allParticipants = [...participants, ...remoteParticipants];
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#121214] text-[#e1e1e6] font-sans">
       {/* Cabeçalho */}
@@ -337,23 +326,23 @@ export default function App() {
         className={`flex-1 grid gap-3 p-3 bg-[#121214] min-h-0 ${
           pinnedParticipantId
             ? 'grid-cols-1'
-            : participants.length > 4 
+            : allParticipants.length > 4 
               ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr' 
               : 'grid-cols-1 sm:grid-cols-2 auto-rows-fr'
         }`}
       >
-        {participants
+        {allParticipants
           .filter((p) => (pinnedParticipantId ? p.id === pinnedParticipantId : true))
           .map((participant) => (
             <VideoCard
               key={participant.id}
               participant={participant}
-              localStream={
+              mediaStream={
                 participant.id === 'local-screen'
                   ? screenStream
                   : participant.id === 'local'
                   ? localStream
-                  : null
+                  : remoteStreams[participant.id] || null
               }
               onEditParticipant={handleEditParticipant}
               onToggleMic={participant.id === 'local' ? handleToggleMic : undefined}
@@ -388,7 +377,7 @@ export default function App() {
       <ImageLinksModal
         isOpen={isImagesModalOpen}
         onClose={() => setIsImagesModalOpen(false)}
-        participants={participants}
+        participants={allParticipants}
         onUpdateParticipant={handleUpdateParticipant}
         targetParticipantId={editingParticipantId}
       />
@@ -397,7 +386,7 @@ export default function App() {
       <HtmlSnippetModal
         isOpen={isHtmlModalOpen}
         onClose={() => setIsHtmlModalOpen(false)}
-        participants={participants}
+        participants={allParticipants}
       />
 
       {/* Chat Drawer */}

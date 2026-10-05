@@ -4,7 +4,7 @@ import { Mic, MicOff, Video, VideoOff, Maximize2, Minimize2, Edit3, Image as Ima
 
 interface VideoCardProps {
   participant: Participant;
-  localStream: MediaStream | null;
+  mediaStream: MediaStream | null;
   onEditParticipant: (participant: Participant) => void;
   onToggleMic?: () => void;
   onToggleCamera?: () => void;
@@ -14,7 +14,7 @@ interface VideoCardProps {
 
 export const VideoCard: React.FC<VideoCardProps> = ({
   participant,
-  localStream,
+  mediaStream,
   onEditParticipant,
   onToggleMic,
   onToggleCamera,
@@ -25,29 +25,27 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const [isMutedByMe, setIsMutedByMe] = React.useState(false);
   const [imageError, setImageError] = React.useState(false);
 
-  // Bind local stream to video element when available
+  // Bind stream to video element when available
   useEffect(() => {
     if (!videoRef.current) return;
 
-    if (participant.isLocal && localStream) {
-      videoRef.current.srcObject = localStream;
+    if (mediaStream) {
+      videoRef.current.srcObject = mediaStream;
       videoRef.current.play().catch((err) => {
-        // Autoplay may be restricted
-        console.warn('Local video play warning:', err);
+        console.warn('Video play warning:', err);
       });
     } else if (!participant.isLocal && participant.videoSampleUrl && participant.feedMode === 'video_sample') {
       videoRef.current.src = participant.videoSampleUrl;
       videoRef.current.loop = true;
       videoRef.current.play().catch(() => {});
     }
-  }, [participant.isLocal, localStream, participant.videoSampleUrl, participant.feedMode]);
+  }, [participant.isLocal, mediaStream, participant.videoSampleUrl, participant.feedMode]);
 
-  // Determine what visual to show:
-  // If camera is OFF or feedMode is 'image', or if local stream is unavailable and feedMode is 'camera'
+  // If camera is OFF or feedMode is 'image', or if stream is unavailable and feedMode is 'camera'
   const showDirectImage =
     participant.feedMode === 'image' ||
     !participant.isCameraOn ||
-    (participant.isLocal && !localStream && participant.feedMode === 'camera');
+    (!mediaStream && participant.feedMode === 'camera');
 
   const cardId = participant.isLocal
     ? 'card-local-video'
