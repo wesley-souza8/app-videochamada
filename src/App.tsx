@@ -223,7 +223,7 @@ export default function App() {
             navigator.mediaDevices.getUserMedia({ audio: true })
               .then(stream => {
                 setLocalStream(stream);
-                startConnection(secureRoomHash);
+                startConnection(secureRoomHash, stream);
               })
               .catch(err => {
                 console.warn('Microfone não acessível:', err);
@@ -231,7 +231,7 @@ export default function App() {
               });
           } else {
             // Inicia Conexão Real com a sala criptografada
-            startConnection(secureRoomHash);
+            startConnection(secureRoomHash, localStream || undefined);
           }
 
           setStatus('connected');

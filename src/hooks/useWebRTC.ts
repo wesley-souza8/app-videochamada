@@ -16,6 +16,12 @@ export const useWebRTC = (
   
   // Usamos ref para ler o estado atual dentro de callbacks do PeerJS
   const localParticipantRef = useRef(localParticipant);
+  const localStreamRef = useRef(localStream);
+  
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
   useEffect(() => {
     localParticipantRef.current = localParticipant;
     // Quando o estado local mudar (ex: nome, foto, feedMode), avisa todo mundo!
@@ -41,7 +47,10 @@ export const useWebRTC = (
     setRemoteParticipants([]);
   }, []);
 
-  const startConnection = useCallback((roomName: string) => {
+  const startConnection = useCallback((roomName: string, overrideStream?: MediaStream) => {
+    if (overrideStream) {
+      localStreamRef.current = overrideStream;
+    }
     stopConnection();
 
     let myIndex = 1;
@@ -101,8 +110,7 @@ export const useWebRTC = (
         
         if (!isScreen) {
           callsRef.current[call.peer] = call;
-          const emptyStream = createEmptyStream();
-          call.answer(localStream || emptyStream);
+          call.answer(getCompleteStream());
 
           // Se eu estiver compartilhando tela, ligo de volta com a tela
           if (screenStream && peerRef.current) {
@@ -153,17 +161,21 @@ export const useWebRTC = (
     if (!localStream) return;
     Object.values(callsRef.current).forEach((call) => {
       if (call.peerConnection) {
-        const senders = call.peerConnection.getSenders();
+        const transceivers = call.peerConnection.getTransceivers();
+        
         localStream.getTracks().forEach((track) => {
-          const sender = senders.find((s) => s.track?.kind === track.kind);
-          if (sender) {
-            sender.replaceTrack(track).catch(console.error);
+          const transceiver = transceivers.find((t) => t.sender.track?.kind === track.kind || t.receiver.track?.kind === track.kind);
+          if (transceiver && transceiver.sender) {
+            transceiver.sender.replaceTrack(track).catch(console.error);
           }
         });
+        
         // Se o localStream perdeu a câmera (Desligou a câmera), interrompemos o envio de vídeo.
         if (localStream.getVideoTracks().length === 0) {
-           const videoSender = senders.find((s) => s.track?.kind === 'video' || s.track === null);
-           if (videoSender) videoSender.replaceTrack(null).catch(console.error);
+           const videoTransceiver = transceivers.find((t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video');
+           if (videoTransceiver && videoTransceiver.sender) {
+             videoTransceiver.sender.replaceTrack(null).catch(console.error);
+           }
         }
       }
     });
@@ -194,8 +206,7 @@ export const useWebRTC = (
     });
 
     // 2. Media Connection
-    const emptyStream = createEmptyStream();
-    const call = peer.call(remoteId, localStream || emptyStream);
+    const call = peer.call(remoteId, getCompleteStream());
     callsRef.current[remoteId] = call;
 
     call.on('stream', (remoteStream) => {
@@ -271,6 +282,14 @@ export const useWebRTC = (
     const videoTrack = canvasStream.getVideoTracks()[0];
     videoTrack.enabled = false;
 
+    return new MediaStream([audioTrack, videoTrack]);
+  };
+
+  const getCompleteStream = (overrideStream?: MediaStream) => {
+    const stream = overrideStream || localStreamRef.current;
+    const empty = createEmptyStream();
+    const audioTrack = stream?.getAudioTracks()[0] || empty.getAudioTracks()[0];
+    const videoTrack = stream?.getVideoTracks()[0] || empty.getVideoTracks()[0];
     return new MediaStream([audioTrack, videoTrack]);
   };
 

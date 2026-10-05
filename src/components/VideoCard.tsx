@@ -120,7 +120,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         muted={participant.isLocal || isMutedByMe}
         className={`w-full h-full bg-black z-0 ${participant.isScreenSharing ? 'object-contain' : 'object-cover'} ${
           participant.isLocal && !participant.isScreenSharing ? 'scale-x-[-1]' : ''
-        } ${showDirectImage ? 'hidden' : 'block'}`}
+        } ${showDirectImage ? 'opacity-0 absolute pointer-events-none -z-10' : 'block'}`}
       />
 
       {/* Screen Sharing Indicator */}
