@@ -188,28 +188,34 @@ export default function App() {
       setParticipants(prev => prev.filter(p => p.isLocal));
     } else {
       const pass = prompt('Digite a senha da sala para entrar:');
-      if (pass !== import.meta.env.VITE_ROOM_PASSWORD) {
-        alert('Senha incorreta!');
-        return;
-      }
+      if (!pass) return;
 
       setStatus('connecting');
       
-      // Inicia Conexão Real
-      startConnection(roomName);
+      // CyberSecurity Fix: Geração de Hash (SHA-256) combinando Nome da Sala + Senha.
+      // Assim, a senha nunca é exposta no código nem enviada ao servidor de sinalização.
+      // Quem digitar a senha errada apenas cairá numa hash (sala) paralela vazia.
+      crypto.subtle.digest('SHA-256', new TextEncoder().encode(roomName + pass))
+        .then(hashBuffer => {
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const secureRoomHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+          
+          // Inicia Conexão Real com a sala criptografada
+          startConnection(secureRoomHash);
 
-      setStatus('connected');
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `msg-${Date.now()}`,
-          senderId: 'system',
-          senderName: 'Sistema',
-          text: `Você entrou na sala "${roomName || 'sala-reuniao-1'}" e conectou à malha P2P.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isSystem: true,
-        },
-      ]);
+          setStatus('connected');
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `msg-${Date.now()}`,
+              senderId: 'system',
+              senderName: 'Sistema',
+              text: `Você entrou na sala "${roomName || 'sala-reuniao-1'}" de forma segura. (Hash: ${secureRoomHash})`,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              isSystem: true,
+            },
+          ]);
+        });
     }
   };
 
