@@ -1,19 +1,38 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import Peer, { MediaConnection } from 'peerjs';
+import Peer, { MediaConnection, DataConnection } from 'peerjs';
 import { Participant } from '../types';
 
-export const useWebRTC = (localStream: MediaStream | null, screenStream: MediaStream | null) => {
+export const useWebRTC = (
+  localParticipant: Participant,
+  localStream: MediaStream | null,
+  screenStream: MediaStream | null
+) => {
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const [remoteParticipants, setRemoteParticipants] = useState<Participant[]>([]);
   const peerRef = useRef<Peer | null>(null);
   const callsRef = useRef<Record<string, MediaConnection>>({});
   const screenCallsRef = useRef<Record<string, MediaConnection>>({});
+  const dataConnsRef = useRef<Record<string, DataConnection>>({});
+  
+  // Usamos ref para ler o estado atual dentro de callbacks do PeerJS
+  const localParticipantRef = useRef(localParticipant);
+  useEffect(() => {
+    localParticipantRef.current = localParticipant;
+    // Quando o estado local mudar (ex: nome, foto, feedMode), avisa todo mundo!
+    Object.values(dataConnsRef.current).forEach((conn) => {
+      if (conn.open) {
+        conn.send({ type: 'SYNC', state: localParticipant });
+      }
+    });
+  }, [localParticipant]);
 
   const stopConnection = useCallback(() => {
     Object.values(callsRef.current).forEach((call) => call.close());
     Object.values(screenCallsRef.current).forEach((call) => call.close());
+    Object.values(dataConnsRef.current).forEach((conn) => conn.close());
     callsRef.current = {};
     screenCallsRef.current = {};
+    dataConnsRef.current = {};
     if (peerRef.current) {
       peerRef.current.destroy();
       peerRef.current = null;
@@ -52,6 +71,29 @@ export const useWebRTC = (localStream: MediaStream | null, screenStream: MediaSt
         } else {
           console.error('PeerJS error:', err);
         }
+      });
+
+      peer.on('connection', (conn) => {
+        dataConnsRef.current[conn.peer] = conn;
+        conn.on('data', (data: any) => {
+          if (data.type === 'SYNC') {
+            setRemoteParticipants((prev) => {
+              const exists = prev.find((p) => p.id === conn.peer);
+              if (exists) {
+                return prev.map((p) => (p.id === conn.peer ? { ...p, ...data.state, id: conn.peer, isLocal: false } : p));
+              }
+              return [...prev, { ...data.state, id: conn.peer, isLocal: false }];
+            });
+          }
+        });
+        
+        const sendInitialState = () => conn.send({ type: 'SYNC', state: localParticipantRef.current });
+        if (conn.open) sendInitialState();
+        else conn.on('open', sendInitialState);
+
+        conn.on('close', () => {
+           delete dataConnsRef.current[conn.peer];
+        });
       });
 
       peer.on('call', (call) => {
@@ -128,6 +170,30 @@ export const useWebRTC = (localStream: MediaStream | null, screenStream: MediaSt
   }, [localStream]);
 
   const callPeer = (peer: Peer, remoteId: string) => {
+    // 1. Data Connection para sincronizar estado (avatar, nome, etc)
+    const conn = peer.connect(remoteId);
+    dataConnsRef.current[remoteId] = conn;
+    conn.on('data', (data: any) => {
+      if (data.type === 'SYNC') {
+        setRemoteParticipants((prev) => {
+          const exists = prev.find((p) => p.id === remoteId);
+          if (exists) {
+            return prev.map((p) => (p.id === remoteId ? { ...p, ...data.state, id: remoteId, isLocal: false } : p));
+          }
+          return [...prev, { ...data.state, id: remoteId, isLocal: false }];
+        });
+      }
+    });
+    
+    const sendInitialState = () => conn.send({ type: 'SYNC', state: localParticipantRef.current });
+    if (conn.open) sendInitialState();
+    else conn.on('open', sendInitialState);
+
+    conn.on('close', () => {
+       delete dataConnsRef.current[remoteId];
+    });
+
+    // 2. Media Connection
     const emptyStream = createEmptyStream();
     const call = peer.call(remoteId, localStream || emptyStream);
     callsRef.current[remoteId] = call;

@@ -77,8 +77,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       } ${isPinned ? 'col-span-2 row-span-2' : ''}`}
     >
       {/* Visual Content: Direct Image vs Video */}
-      {showDirectImage ? (
-        <div className="w-full h-full relative bg-[#121214] flex items-center justify-center overflow-hidden">
+      {showDirectImage && (
+        <div className="absolute inset-0 w-full h-full bg-[#121214] flex items-center justify-center overflow-hidden z-0">
           {participant.directImageUrl && !imageError ? (
             <img
               id={videoId}
@@ -88,7 +88,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            // Fallback if user's direct image URL has network/CORS error
+            // Fallback if user's direct image URL has network/CORS error or is empty
             <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-[#18181b]">
               <div className="w-24 h-24 rounded-full bg-[#29292e] border border-[#323238] flex items-center justify-center text-3xl font-bold text-[#00b37e] mb-3">
                 {participant.name.charAt(0).toUpperCase()}
@@ -109,18 +109,19 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <span>Link Direto de Imagem</span>
           </div>
         </div>
-      ) : (
-        <video
-          id={videoId}
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={participant.isLocal || isMutedByMe}
-          className={`w-full h-full bg-black ${participant.isScreenSharing ? 'object-contain' : 'object-cover'} ${
-            participant.isLocal && !participant.isScreenSharing ? 'scale-x-[-1]' : ''
-          }`}
-        />
       )}
+
+      {/* A tag de vídeo precisa estar sempre no DOM para que o áudio seja reproduzido, mesmo que visualmente escondida */}
+      <video
+        id={videoId}
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={participant.isLocal || isMutedByMe}
+        className={`w-full h-full bg-black z-0 ${participant.isScreenSharing ? 'object-contain' : 'object-cover'} ${
+          participant.isLocal && !participant.isScreenSharing ? 'scale-x-[-1]' : ''
+        } ${showDirectImage ? 'hidden' : 'block'}`}
+      />
 
       {/* Screen Sharing Indicator */}
       {participant.isScreenSharing && (

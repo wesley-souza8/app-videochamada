@@ -28,9 +28,6 @@ export default function App() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 
-  // WebRTC Mesh Real
-  const { startConnection, stopConnection, remoteStreams, remoteParticipants } = useWebRTC(localStream, screenStream);
-
   // Iniciando apenas com o usuário local, sem imagens de mentira
   const [participants, setParticipants] = useState<Participant[]>([
     {
@@ -41,10 +38,15 @@ export default function App() {
       isCameraOn: false,
       isSpeaking: false,
       isScreenSharing: false,
-      feedMode: 'camera',
-      directImageUrl: '', // Imagem mockada removida
+      feedMode: 'image',
+      directImageUrl: '',
     }
   ]);
+
+  const localParticipant = participants.find((p) => p.id === 'local') || participants[0];
+
+  // WebRTC Mesh Real
+  const { startConnection, stopConnection, remoteStreams, remoteParticipants } = useWebRTC(localParticipant, localStream, screenStream);
 
   // Chat messages
   const [messages, setMessages] = useState<ChatMessage[]>([
