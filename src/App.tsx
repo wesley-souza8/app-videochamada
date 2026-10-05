@@ -321,6 +321,31 @@ export default function App() {
   };
 
   const allParticipants = [...participants, ...remoteParticipants];
+  const activeMainParticipant = allParticipants.find(p => p.id === pinnedParticipantId) || allParticipants.find(p => p.isScreenSharing);
+  const isSidebarMode = !!activeMainParticipant;
+
+  const renderVideoCard = (participant: Participant, isPinnedMain: boolean = false) => (
+    <VideoCard
+      key={participant.id}
+      participant={participant}
+      mediaStream={
+        participant.id === 'local-screen'
+          ? screenStream
+          : participant.id === 'local'
+          ? localStream
+          : remoteStreams[participant.id] || null
+      }
+      onEditParticipant={handleEditParticipant}
+      onToggleMic={participant.id === 'local' ? handleToggleMic : undefined}
+      onToggleCamera={participant.id === 'local' ? handleToggleCamera : undefined}
+      isPinned={isPinnedMain ? false : (pinnedParticipantId === participant.id)} // If it's in the main view, don't show the "minimize" as it's already handled, or maybe keep it? Let's keep the logic.
+      onTogglePin={() =>
+        setPinnedParticipantId(
+          pinnedParticipantId === participant.id ? null : participant.id
+        )
+      }
+    />
+  );
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#121214] text-[#e1e1e6] font-sans">
@@ -346,38 +371,36 @@ export default function App() {
       {/* Grid de Vídeos / Imagens Diretas */}
       <main
         id="video-grid-container"
-        className={`flex-1 grid gap-3 p-3 bg-[#121214] min-h-0 ${
-          pinnedParticipantId
-            ? 'grid-cols-1'
-            : allParticipants.length > 4 
-              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr' 
-              : 'grid-cols-1 sm:grid-cols-2 auto-rows-fr'
+        className={`flex-1 p-3 bg-[#121214] min-h-0 ${
+          isSidebarMode
+            ? 'flex flex-col md:flex-row gap-3'
+            : `grid gap-3 ${
+                allParticipants.length > 4
+                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr'
+                  : 'grid-cols-1 sm:grid-cols-2 auto-rows-fr'
+              }`
         }`}
       >
-        {allParticipants
-          .filter((p) => (pinnedParticipantId ? p.id === pinnedParticipantId : true))
-          .map((participant) => (
-            <VideoCard
-              key={participant.id}
-              participant={participant}
-              mediaStream={
-                participant.id === 'local-screen'
-                  ? screenStream
-                  : participant.id === 'local'
-                  ? localStream
-                  : remoteStreams[participant.id] || null
-              }
-              onEditParticipant={handleEditParticipant}
-              onToggleMic={participant.id === 'local' ? handleToggleMic : undefined}
-              onToggleCamera={participant.id === 'local' ? handleToggleCamera : undefined}
-              isPinned={pinnedParticipantId === participant.id}
-              onTogglePin={() =>
-                setPinnedParticipantId(
-                  pinnedParticipantId === participant.id ? null : participant.id
-                )
-              }
-            />
-          ))}
+        {isSidebarMode && activeMainParticipant ? (
+          <>
+            {/* Main view (Screen share or pinned) */}
+            <div className="flex-1 min-h-0 min-w-0 flex">
+              {renderVideoCard(activeMainParticipant, true)}
+            </div>
+            {/* Sidebar (others) */}
+            <div className="w-full md:w-64 lg:w-72 flex flex-row md:flex-col gap-3 overflow-x-auto md:overflow-y-auto min-h-0 snap-x md:snap-none">
+              {allParticipants
+                .filter((p) => p.id !== activeMainParticipant.id)
+                .map((participant) => (
+                  <div key={participant.id} className="min-w-[140px] md:min-w-0 md:h-40 lg:h-48 flex-shrink-0">
+                    {renderVideoCard(participant)}
+                  </div>
+                ))}
+            </div>
+          </>
+        ) : (
+          allParticipants.map((participant) => renderVideoCard(participant))
+        )}
       </main>
 
       {/* Barra de Controles Inferior */}
