@@ -47,25 +47,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     !participant.isCameraOn ||
     (!mediaStream && participant.feedMode === 'camera');
 
-  const cardId = participant.isLocal
-    ? 'card-local-video'
-    : `card-${participant.id}-video`;
-
-  const videoId = participant.isLocal
-    ? 'local-video'
-    : participant.id === 'remote-1'
-    ? 'remote-video-1'
-    : participant.id === 'remote-2'
-    ? 'remote-video-2'
-    : 'remote-video-3';
-
-  const labelId = participant.isLocal
-    ? 'label-local'
-    : participant.id === 'remote-1'
-    ? 'label-remote-1'
-    : participant.id === 'remote-2'
-    ? 'label-remote-2'
-    : 'label-remote-3';
+  const cardId = `card-${participant.id}`;
+  const videoId = `video-${participant.id}`;
+  const labelId = `label-${participant.id}`;
 
   return (
     <div
