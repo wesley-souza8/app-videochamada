@@ -11,7 +11,7 @@ import { PRESET_IMAGE_OPTIONS, PRESET_SAMPLE_VIDEOS } from './data/presetImages'
 
 export default function App() {
   const [roomName, setRoomName] = useState('sala-reuniao-1');
-  const [status, setStatus] = useState<ConnectionStatus>('connected');
+  const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(false); // default to direct image so preview is immediately beautiful!
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -52,24 +52,10 @@ export default function App() {
       id: 'msg-1',
       senderId: 'system',
       senderName: 'Sistema',
-      text: 'Conectado à sala de reunião WebRTC.',
-      timestamp: 'Agora',
+      text: 'Bem-vindo! Clique em "Conectar" para iniciar.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isSystem: true,
-    },
-    {
-      id: 'msg-2',
-      senderId: 'remote-1',
-      senderName: 'Amigo 1',
-      text: 'Olá! Conseguiu adicionar os links diretos para as imagens?',
-      timestamp: '10:52',
-    },
-    {
-      id: 'msg-3',
-      senderId: 'remote-2',
-      senderName: 'Amigo 2',
-      text: 'Sim! Fica ótimo usando tanto a tag <img> quanto poster no <video>!',
-      timestamp: '10:53',
-    },
+    }
   ]);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
 
