@@ -6,9 +6,9 @@ Uma plataforma gratuita de videochamada baseada em malha (mesh) P2P, suportando 
 
 - **WebRTC P2P Nativo**: A infraestrutura de vídeo roda diretamente do navegador de um usuário para o outro, mantendo o tráfego 100% livre de servidores de mídia centrais pagos.
 - **Sinalização Gratuita**: Orquestrado pelo **PeerJS** utilizando seu servidor público de sinalização em nuvem para descoberta de peers.
-- **Layout Dinâmico (Estilo Discord)**: A sala suporta múltiplas transmissões simultâneas da mesma pessoa (câmera + compartilhamento de tela separados) e se redimensiona automaticamente com base no número de transmissões ativas.
+- **Layout Dinâmico e Responsivo**: A sala suporta múltiplas transmissões simultâneas da mesma pessoa (câmera + compartilhamento de tela separados) e ajusta o layout dinamicamente. Quando a tela é compartilhada, os usuários vão para uma barra lateral (estilo Discord) e o vídeo principal preenche o centro, sem distorcer, independente da proporção do monitor de quem transmite.
+- **Tela Inteira Nativa**: Clique simples na interface para expandir qualquer fluxo de vídeo (ou compartilhamento de tela) para tela cheia nativa do navegador (Fullscreen API).
 - **Segurança (Sala Privada)**: Acesso protegido por senha local via variáveis de ambiente seguras.
-- **Fixar Vídeo (Pin)**: Clique rápido na interface para expandir qualquer fluxo de vídeo e visualizar detalhes.
 
 ## 🛠️ Stack Tecnológica
 
