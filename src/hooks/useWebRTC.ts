@@ -67,6 +67,34 @@ export const useWebRTC = (
     }
   }, []);
 
+  const makeCall = useCallback((remoteId: string) => {
+    const stream = localStreamRef.current || new MediaStream();
+    const call = peerRef.current!.call(remoteId, stream);
+    
+    if (call.peerConnection) {
+       const hasAudio = stream.getAudioTracks().length > 0;
+       const hasVideo = stream.getVideoTracks().length > 0;
+       
+       if (!hasAudio) call.peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
+       if (!hasVideo) call.peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+    }
+    return call;
+  }, []);
+
+  const answerCall = useCallback((call: MediaConnection) => {
+    const stream = localStreamRef.current || new MediaStream();
+    
+    if (call.peerConnection) {
+       const hasAudio = stream.getAudioTracks().length > 0;
+       const hasVideo = stream.getVideoTracks().length > 0;
+       
+       if (!hasAudio) call.peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
+       if (!hasVideo) call.peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+    }
+    
+    call.answer(stream);
+  }, []);
+
   const startConnection = useCallback((roomName: string, overrideStream?: MediaStream) => {
     if (overrideStream) {
       localStreamRef.current = overrideStream;
@@ -130,9 +158,9 @@ export const useWebRTC = (
         
         if (!isScreen) {
           callsRef.current[call.peer] = call;
-          call.answer(createEmptyStream());
+          answerCall(call);
           
-          // Sync tracks shortly after answering
+          // Sync tracks shortly after answering to ensure null tracks are applied if necessary
           setTimeout(() => syncTracks(call), 500);
 
           // Se eu estiver compartilhando tela, ligo de volta com a tela
@@ -213,10 +241,10 @@ export const useWebRTC = (
     });
 
     // 2. Media Connection
-    const call = peer.call(remoteId, createEmptyStream());
+    const call = makeCall(remoteId);
     callsRef.current[remoteId] = call;
 
-    // Sync tracks shortly after calling
+    // Sync tracks shortly after calling to ensure null tracks are applied if necessary
     setTimeout(() => syncTracks(call), 500);
 
     call.on('stream', (remoteStream) => {
@@ -271,30 +299,7 @@ export const useWebRTC = (
     }
   };
 
-  // Helper para não quebrar o WebRTC se o usuário entrar sem câmera/mic
-  const createEmptyStream = () => {
-    // Audio Dummy
-    const ctx = new AudioContext();
-    const oscillator = ctx.createOscillator();
-    const dst = oscillator.connect(ctx.createMediaStreamDestination());
-    oscillator.start();
-    const audioTrack = (dst as any).stream.getAudioTracks()[0];
-    audioTrack.enabled = false;
 
-    // Video Dummy (Black Canvas 1x1)
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const ctx2d = canvas.getContext('2d');
-    if (ctx2d) {
-      ctx2d.fillRect(0, 0, 1, 1);
-    }
-    const canvasStream = canvas.captureStream(1);
-    const videoTrack = canvasStream.getVideoTracks()[0];
-    videoTrack.enabled = false;
-
-    return new MediaStream([audioTrack, videoTrack]);
-  };
 
 
 
