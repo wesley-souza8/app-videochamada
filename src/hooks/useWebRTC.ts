@@ -59,7 +59,7 @@ export const useWebRTC = (localStream: MediaStream | null, screenStream: MediaSt
         
         if (!isScreen) {
           callsRef.current[call.peer] = call;
-          const emptyStream = createEmptyAudioStream();
+          const emptyStream = createEmptyStream();
           call.answer(localStream || emptyStream);
 
           // Se eu estiver compartilhando tela, ligo de volta com a tela
@@ -118,12 +118,17 @@ export const useWebRTC = (localStream: MediaStream | null, screenStream: MediaSt
             sender.replaceTrack(track).catch(console.error);
           }
         });
+        // Se o localStream perdeu a câmera (Desligou a câmera), interrompemos o envio de vídeo.
+        if (localStream.getVideoTracks().length === 0) {
+           const videoSender = senders.find((s) => s.track?.kind === 'video' || s.track === null);
+           if (videoSender) videoSender.replaceTrack(null).catch(console.error);
+        }
       }
     });
   }, [localStream]);
 
   const callPeer = (peer: Peer, remoteId: string) => {
-    const emptyStream = createEmptyAudioStream();
+    const emptyStream = createEmptyStream();
     const call = peer.call(remoteId, localStream || emptyStream);
     callsRef.current[remoteId] = call;
 
@@ -179,14 +184,28 @@ export const useWebRTC = (localStream: MediaStream | null, screenStream: MediaSt
   };
 
   // Helper para não quebrar o WebRTC se o usuário entrar sem câmera/mic
-  const createEmptyAudioStream = () => {
+  const createEmptyStream = () => {
+    // Audio Dummy
     const ctx = new AudioContext();
     const oscillator = ctx.createOscillator();
     const dst = oscillator.connect(ctx.createMediaStreamDestination());
     oscillator.start();
-    const track = (dst as any).stream.getAudioTracks()[0];
-    track.enabled = false;
-    return new MediaStream([track]);
+    const audioTrack = (dst as any).stream.getAudioTracks()[0];
+    audioTrack.enabled = false;
+
+    // Video Dummy (Black Canvas 1x1)
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx2d = canvas.getContext('2d');
+    if (ctx2d) {
+      ctx2d.fillRect(0, 0, 1, 1);
+    }
+    const canvasStream = canvas.captureStream(1);
+    const videoTrack = canvasStream.getVideoTracks()[0];
+    videoTrack.enabled = false;
+
+    return new MediaStream([audioTrack, videoTrack]);
   };
 
   return { startConnection, stopConnection, remoteStreams, remoteParticipants };

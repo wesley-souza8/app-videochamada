@@ -85,8 +85,13 @@ export default function App() {
 
   const stopCamera = () => {
     if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
-      setLocalStream(null);
+      localStream.getVideoTracks().forEach((track) => {
+        track.stop();
+        localStream.removeTrack(track);
+      });
+      // Cria uma nova referência contendo apenas as faixas de áudio que sobraram
+      const newStream = new MediaStream(localStream.getAudioTracks());
+      setLocalStream(newStream);
     }
     setIsCameraOn(false);
     setParticipants((prev) =>
@@ -103,14 +108,25 @@ export default function App() {
   };
 
   // Toggle Mic
-  const handleToggleMic = () => {
+  const handleToggleMic = async () => {
     const nextMicState = !isMicOn;
     setIsMicOn(nextMicState);
 
+    // Se já temos um stream, apenas mutamos/desmutamos a faixa existente
     if (localStream) {
       localStream.getAudioTracks().forEach((track) => {
         track.enabled = nextMicState;
       });
+    } else if (nextMicState) {
+      // Se não temos stream (câmera desligada) e o usuário quer ligar o mic:
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setLocalStream(audioStream);
+      } catch (err) {
+        console.warn('Microfone indisponível:', err);
+        setIsMicOn(false); // Reverte caso negue permissão
+        return;
+      }
     }
 
     setParticipants((prev) =>
@@ -200,8 +216,21 @@ export default function App() {
           const hashArray = Array.from(new Uint8Array(hashBuffer));
           const secureRoomHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
           
-          // Inicia Conexão Real com a sala criptografada
-          startConnection(secureRoomHash);
+          // Inicia captura de áudio se o mic estiver ligado
+          if (isMicOn && !localStream) {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+              .then(stream => {
+                setLocalStream(stream);
+                startConnection(secureRoomHash);
+              })
+              .catch(err => {
+                console.warn('Microfone não acessível:', err);
+                startConnection(secureRoomHash);
+              });
+          } else {
+            // Inicia Conexão Real com a sala criptografada
+            startConnection(secureRoomHash);
+          }
 
           setStatus('connected');
           setMessages((prev) => [

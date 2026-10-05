@@ -79,7 +79,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       {/* Visual Content: Direct Image vs Video */}
       {showDirectImage ? (
         <div className="w-full h-full relative bg-[#121214] flex items-center justify-center overflow-hidden">
-          {!imageError ? (
+          {participant.directImageUrl && !imageError ? (
             <img
               id={videoId}
               src={participant.directImageUrl}
