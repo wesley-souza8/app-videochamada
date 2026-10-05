@@ -116,7 +116,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           autoPlay
           playsInline
           muted={participant.isLocal || isMutedByMe}
-          className={`w-full h-full object-cover bg-black ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
+          className={`w-full h-full bg-black ${participant.isScreenSharing ? 'object-contain' : 'object-cover'} ${
+            participant.isLocal && !participant.isScreenSharing ? 'scale-x-[-1]' : ''
+          }`}
         />
       )}
 

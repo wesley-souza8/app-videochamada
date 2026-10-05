@@ -29,7 +29,7 @@ export default function App() {
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 
   // WebRTC Mesh Real
-  const { startConnection, stopConnection, remoteStreams, remoteParticipants } = useWebRTC(localStream);
+  const { startConnection, stopConnection, remoteStreams, remoteParticipants } = useWebRTC(localStream, screenStream);
 
   // Iniciando apenas com o usuário local, sem imagens de mentira
   const [participants, setParticipants] = useState<Participant[]>([
@@ -130,7 +130,7 @@ export default function App() {
     } else {
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
           setScreenStream(stream);
           setIsScreenSharing(true);
           

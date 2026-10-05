@@ -2,15 +2,18 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Peer, { MediaConnection } from 'peerjs';
 import { Participant } from '../types';
 
-export const useWebRTC = (localStream: MediaStream | null) => {
+export const useWebRTC = (localStream: MediaStream | null, screenStream: MediaStream | null) => {
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const [remoteParticipants, setRemoteParticipants] = useState<Participant[]>([]);
   const peerRef = useRef<Peer | null>(null);
   const callsRef = useRef<Record<string, MediaConnection>>({});
+  const screenCallsRef = useRef<Record<string, MediaConnection>>({});
 
   const stopConnection = useCallback(() => {
     Object.values(callsRef.current).forEach((call) => call.close());
+    Object.values(screenCallsRef.current).forEach((call) => call.close());
     callsRef.current = {};
+    screenCallsRef.current = {};
     if (peerRef.current) {
       peerRef.current.destroy();
       peerRef.current = null;
@@ -22,8 +25,6 @@ export const useWebRTC = (localStream: MediaStream | null) => {
   const startConnection = useCallback((roomName: string) => {
     stopConnection();
 
-    // Lógica de Descoberta P2P Simples sem Backend
-    // O usuário tentará assumir um índice de 1 a 4.
     let myIndex = 1;
 
     const connectAs = (index: number) => {
@@ -39,7 +40,6 @@ export const useWebRTC = (localStream: MediaStream | null) => {
         peerRef.current = peer;
         console.log(`Conectado ao servidor de sinalização como: ${id}`);
         
-        // Se eu sou o 3, eu ligo pro 1 e pro 2.
         for (let i = 1; i < index; i++) {
           const remoteId = `${roomName}-user-${i}`;
           callPeer(peer, remoteId);
@@ -48,34 +48,65 @@ export const useWebRTC = (localStream: MediaStream | null) => {
 
       peer.on('error', (err: any) => {
         if (err.type === 'unavailable-id') {
-          // ID em uso, sou o próximo!
           connectAs(index + 1);
         } else {
           console.error('PeerJS error:', err);
         }
       });
 
-      // Atender ligações de quem entrar depois de mim
       peer.on('call', (call) => {
-        callsRef.current[call.peer] = call;
-        const emptyStream = createEmptyAudioStream();
-        call.answer(localStream || emptyStream);
+        const isScreen = call.metadata?.type === 'screen';
+        
+        if (!isScreen) {
+          callsRef.current[call.peer] = call;
+          const emptyStream = createEmptyAudioStream();
+          call.answer(localStream || emptyStream);
+
+          // Se eu estiver compartilhando tela, ligo de volta com a tela
+          if (screenStream && peerRef.current) {
+             const sc = peerRef.current.call(call.peer, screenStream, { metadata: { type: 'screen' } });
+             screenCallsRef.current[call.peer] = sc;
+          }
+        } else {
+          // É uma chamada recebendo tela de alguém
+          call.answer(); // Recebo apenas, não envio nada de volta nesta conexão
+        }
 
         call.on('stream', (remoteStream) => {
-          handleRemoteStream(call.peer, remoteStream);
+          handleRemoteStream(isScreen ? `${call.peer}-screen` : call.peer, remoteStream, isScreen);
         });
 
         call.on('close', () => {
-          removeRemotePeer(call.peer);
+          removeRemotePeer(isScreen ? `${call.peer}-screen` : call.peer);
         });
       });
     };
 
     connectAs(myIndex);
+  // Não podemos colocar screenStream nas deps, senão ele reconecta a malha inteira.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localStream, stopConnection]);
 
-  // Se o meu localStream mudar (ex: liguei a câmera), precisamos atualizar as chamadas ativas!
-  // No PeerJS, substituir a track de uma chamada ativa requer usar RTCRtpSender.replaceTrack.
+  // Efeito para ligar/desligar a chamada de tela dinamicamente sem reiniciar a malha
+  useEffect(() => {
+    if (!peerRef.current) return;
+    
+    if (screenStream) {
+       // Ligue para todos os peers atuais enviando a tela
+       Object.keys(callsRef.current).forEach(remoteId => {
+          if (!screenCallsRef.current[remoteId]) {
+             const sc = peerRef.current!.call(remoteId, screenStream, { metadata: { type: 'screen' } });
+             screenCallsRef.current[remoteId] = sc;
+          }
+       });
+    } else {
+       // Desligue todas as chamadas de tela ativas
+       Object.values(screenCallsRef.current).forEach(call => call.close());
+       screenCallsRef.current = {};
+    }
+  }, [screenStream]);
+
+  // Se o meu localStream mudar (ex: liguei a câmera), precisamos atualizar as tracks da chamada principal
   useEffect(() => {
     if (!localStream) return;
     Object.values(callsRef.current).forEach((call) => {
@@ -97,7 +128,7 @@ export const useWebRTC = (localStream: MediaStream | null) => {
     callsRef.current[remoteId] = call;
 
     call.on('stream', (remoteStream) => {
-      handleRemoteStream(remoteId, remoteStream);
+      handleRemoteStream(remoteId, remoteStream, false);
     });
 
     call.on('close', () => {
@@ -109,21 +140,23 @@ export const useWebRTC = (localStream: MediaStream | null) => {
     });
   };
 
-  const handleRemoteStream = (peerId: string, stream: MediaStream) => {
+  const handleRemoteStream = (peerId: string, stream: MediaStream, isScreen: boolean = false) => {
     setRemoteStreams((prev) => ({ ...prev, [peerId]: stream }));
     
-    // Add participant se não existir
     setRemoteParticipants((prev) => {
       if (prev.find((p) => p.id === peerId)) return prev;
       
+      const baseName = peerId.includes('-screen') ? peerId.split('-user-')[1].split('-')[0] : peerId.split('-').pop();
+      const name = isScreen ? `Tela do Participante ${baseName}` : `Participante ${baseName}`;
+
       return [...prev, {
         id: peerId,
-        name: `Participante ${peerId.split('-').pop()}`,
+        name,
         isLocal: false,
         isMicOn: true,
         isCameraOn: stream.getVideoTracks().length > 0,
         isSpeaking: false,
-        isScreenSharing: false,
+        isScreenSharing: isScreen,
         feedMode: 'camera',
         directImageUrl: '',
       }];
@@ -137,7 +170,12 @@ export const useWebRTC = (localStream: MediaStream | null) => {
       return next;
     });
     setRemoteParticipants((prev) => prev.filter((p) => p.id !== peerId));
-    delete callsRef.current[peerId];
+    if (peerId.includes('-screen')) {
+       const baseId = peerId.replace('-screen', '');
+       delete screenCallsRef.current[baseId];
+    } else {
+       delete callsRef.current[peerId];
+    }
   };
 
   // Helper para não quebrar o WebRTC se o usuário entrar sem câmera/mic
