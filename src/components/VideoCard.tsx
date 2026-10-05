@@ -70,7 +70,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   return (
     <div
       id={cardId}
-      className={`video-card relative bg-[#202024] border rounded-lg overflow-hidden flex items-center justify-center group transition-all duration-300 ${
+      className={`video-card relative w-full h-full bg-[#202024] border rounded-lg overflow-hidden flex items-center justify-center group transition-all duration-300 ${
         participant.isSpeaking
           ? 'border-[#00875f] ring-2 ring-[#00875f]/50 shadow-[0_0_15px_rgba(0,135,95,0.25)]'
           : 'border-[#323238] hover:border-[#4d4d57]'

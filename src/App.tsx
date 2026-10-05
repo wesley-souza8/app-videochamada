@@ -388,7 +388,7 @@ export default function App() {
               {allParticipants
                 .filter((p) => p.id !== activeMainParticipant.id)
                 .map((participant) => (
-                  <div key={participant.id} className="min-w-[140px] md:min-w-0 md:h-40 lg:h-48 flex-shrink-0">
+                  <div key={participant.id} className="min-w-[140px] h-32 md:min-w-0 md:h-40 lg:h-48 flex-shrink-0">
                     {renderVideoCard(participant)}
                   </div>
                 ))}
