@@ -383,10 +383,6 @@ export default function App() {
       >
         {isSidebarMode && activeMainParticipant ? (
           <>
-            {/* Main view (Screen share or pinned) */}
-            <div className="flex-1 min-h-0 min-w-0 flex">
-              {renderVideoCard(activeMainParticipant, true)}
-            </div>
             {/* Sidebar (others) */}
             <div className="w-full md:w-64 lg:w-72 flex flex-row md:flex-col gap-3 overflow-x-auto md:overflow-y-auto min-h-0 snap-x md:snap-none">
               {allParticipants
@@ -396,6 +392,10 @@ export default function App() {
                     {renderVideoCard(participant)}
                   </div>
                 ))}
+            </div>
+            {/* Main view (Screen share or pinned) */}
+            <div className="flex-1 min-h-0 min-w-0 flex">
+              {renderVideoCard(activeMainParticipant, true)}
             </div>
           </>
         ) : (

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Participant } from '../types';
-import { Mic, MicOff, Video, VideoOff, Maximize2, Minimize2, Edit3, Image as ImageIcon, Volume2, VolumeX, Monitor } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Maximize, Maximize2, Minimize2, Edit3, Image as ImageIcon, Volume2, VolumeX, Monitor } from 'lucide-react';
 
 interface VideoCardProps {
   participant: Participant;
@@ -174,8 +174,26 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
         <button
           type="button"
+          onClick={() => {
+            const el = document.getElementById(cardId);
+            if (el) {
+              if (document.fullscreenElement) {
+                document.exitFullscreen();
+              } else {
+                el.requestFullscreen();
+              }
+            }
+          }}
+          title="Tela Inteira"
+          className="p-1.5 hover:bg-white/10 text-white rounded transition-colors"
+        >
+          <Maximize className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          type="button"
           onClick={onTogglePin}
-          title={isPinned ? 'Restaurar grade 2x2' : 'Fixar / Expandir'}
+          title={isPinned ? 'Restaurar grade' : 'Fixar / Expandir'}
           className="p-1.5 hover:bg-white/10 text-white rounded transition-colors"
         >
           {isPinned ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
