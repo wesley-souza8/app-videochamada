@@ -27,55 +27,19 @@ export default function App() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 
-  // 4 participants matching the 2x2 grid requested
+  // Iniciando apenas com o usuário local, sem imagens de mentira
   const [participants, setParticipants] = useState<Participant[]>([
     {
       id: 'local',
       name: 'Você (Local)',
       isLocal: true,
       isMicOn: true,
-      isCameraOn: false, // Default to direct image as shown in prompt
-      isSpeaking: false,
-      isScreenSharing: false,
-      feedMode: 'image',
-      directImageUrl: PRESET_IMAGE_OPTIONS[0].url,
-    },
-    {
-      id: 'remote-1',
-      name: 'Amigo 1',
-      isLocal: false,
-      isMicOn: true,
       isCameraOn: false,
       isSpeaking: false,
       isScreenSharing: false,
-      feedMode: 'image',
-      directImageUrl: PRESET_IMAGE_OPTIONS[1].url,
-      videoSampleUrl: PRESET_SAMPLE_VIDEOS.amigo1,
-    },
-    {
-      id: 'remote-2',
-      name: 'Amigo 2',
-      isLocal: false,
-      isMicOn: true,
-      isCameraOn: false,
-      isSpeaking: false,
-      isScreenSharing: false,
-      feedMode: 'image',
-      directImageUrl: PRESET_IMAGE_OPTIONS[2].url,
-      videoSampleUrl: PRESET_SAMPLE_VIDEOS.amigo2,
-    },
-    {
-      id: 'remote-3',
-      name: 'Amigo 3',
-      isLocal: false,
-      isMicOn: true,
-      isCameraOn: false,
-      isSpeaking: false,
-      isScreenSharing: false,
-      feedMode: 'image',
-      directImageUrl: PRESET_IMAGE_OPTIONS[3].url,
-      videoSampleUrl: PRESET_SAMPLE_VIDEOS.amigo3,
-    },
+      feedMode: 'camera',
+      directImageUrl: '', // Imagem mockada removida
+    }
   ]);
 
   // Chat messages
@@ -164,7 +128,7 @@ export default function App() {
     );
   };
 
-  // Screen Share
+  // Screen Share (Estilo Discord - Cria um novo card para a tela)
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
       if (screenStream) {
@@ -172,41 +136,47 @@ export default function App() {
         setScreenStream(null);
       }
       setIsScreenSharing(false);
-      setParticipants((prev) =>
-        prev.map((p) => (p.isLocal ? { ...p, isScreenSharing: false } : p))
-      );
+      setParticipants((prev) => prev.filter((p) => p.id !== 'local-screen'));
     } else {
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
           const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
           setScreenStream(stream);
           setIsScreenSharing(true);
-          setParticipants((prev) =>
-            prev.map((p) => (p.isLocal ? { ...p, isScreenSharing: true } : p))
-          );
+          
+          const screenParticipant: Participant = {
+            id: 'local-screen',
+            name: 'Sua Tela',
+            isLocal: true,
+            isMicOn: false,
+            isCameraOn: true,
+            isSpeaking: false,
+            isScreenSharing: true,
+            feedMode: 'camera', // Tratado como camera para usar o srcObject do VideoCard
+            directImageUrl: '',
+          };
+          setParticipants((prev) => [...prev, screenParticipant]);
 
           // Stop screen share when browser stop sharing button is clicked
           stream.getVideoTracks()[0].onended = () => {
             setIsScreenSharing(false);
-            setParticipants((prev) =>
-              prev.map((p) => (p.isLocal ? { ...p, isScreenSharing: false } : p))
-            );
+            setParticipants((prev) => prev.filter((p) => p.id !== 'local-screen'));
           };
         } else {
-          // Simulated screen share for environments without getDisplayMedia
+          // Simulated screen share
           setIsScreenSharing(true);
-          setParticipants((prev) =>
-            prev.map((p) =>
-              p.isLocal
-                ? {
-                    ...p,
-                    isScreenSharing: true,
-                    directImageUrl: PRESET_IMAGE_OPTIONS[5].url, // Dashboard screenshare preset
-                    feedMode: 'image',
-                  }
-                : p
-            )
-          );
+          const screenParticipant: Participant = {
+            id: 'local-screen',
+            name: 'Sua Tela',
+            isLocal: true,
+            isMicOn: false,
+            isCameraOn: false,
+            isSpeaking: false,
+            isScreenSharing: true,
+            feedMode: 'camera',
+            directImageUrl: '',
+          };
+          setParticipants((prev) => [...prev, screenParticipant]);
         }
       } catch (err) {
         console.warn('Screen share canceled or not permitted:', err);
@@ -224,7 +194,15 @@ export default function App() {
         setScreenStream(null);
       }
       setIsScreenSharing(false);
+      // Remove todo mundo menos o local ao desconectar
+      setParticipants(prev => prev.filter(p => p.isLocal));
     } else {
+      const pass = prompt('Digite a senha da sala para entrar:');
+      if (pass !== import.meta.env.VITE_ROOM_PASSWORD) {
+        alert('Senha incorreta!');
+        return;
+      }
+
       setStatus('connecting');
       setTimeout(() => {
         setStatus('connected');
@@ -239,6 +217,25 @@ export default function App() {
             isSystem: true,
           },
         ]);
+
+        // Simula um amigo entrando na sala 2 segundos depois para mostrar o grid adaptativo
+        setTimeout(() => {
+          setParticipants(prev => [
+            ...prev,
+            {
+              id: 'remote-1',
+              name: 'Amigo 1',
+              isLocal: false,
+              isMicOn: true,
+              isCameraOn: false,
+              isSpeaking: false,
+              isScreenSharing: false,
+              feedMode: 'camera',
+              directImageUrl: '',
+            }
+          ]);
+        }, 2000);
+
       }, 600);
     }
   };
@@ -334,13 +331,15 @@ export default function App() {
         unreadChatCount={unreadChatCount}
       />
 
-      {/* Grid de Vídeos / Imagens Diretas (Exatamente como solicitado) */}
+      {/* Grid de Vídeos / Imagens Diretas */}
       <main
         id="video-grid-container"
         className={`flex-1 grid gap-3 p-3 bg-[#121214] min-h-0 ${
           pinnedParticipantId
             ? 'grid-cols-1'
-            : 'grid-cols-1 sm:grid-cols-2 grid-rows-2'
+            : participants.length > 4 
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr' 
+              : 'grid-cols-1 sm:grid-cols-2 auto-rows-fr'
         }`}
       >
         {participants
@@ -349,10 +348,16 @@ export default function App() {
             <VideoCard
               key={participant.id}
               participant={participant}
-              localStream={participant.isLocal ? (screenStream || localStream) : null}
+              localStream={
+                participant.id === 'local-screen'
+                  ? screenStream
+                  : participant.id === 'local'
+                  ? localStream
+                  : null
+              }
               onEditParticipant={handleEditParticipant}
-              onToggleMic={participant.isLocal ? handleToggleMic : undefined}
-              onToggleCamera={participant.isLocal ? handleToggleCamera : undefined}
+              onToggleMic={participant.id === 'local' ? handleToggleMic : undefined}
+              onToggleCamera={participant.id === 'local' ? handleToggleCamera : undefined}
               isPinned={pinnedParticipantId === participant.id}
               onTogglePin={() =>
                 setPinnedParticipantId(
