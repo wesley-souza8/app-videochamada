@@ -1,0 +1,10 @@
+{
+  "name": "WebRTC Video Call Hub",
+  "description": "Aplicativo de chamadas de vídeo WebRTC em grade 2x2 com suporte a câmera real, compartilhamento de tela, microfone e links diretos de imagens para participantes.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "display-capture"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
